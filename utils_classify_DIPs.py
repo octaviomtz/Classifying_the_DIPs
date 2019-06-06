@@ -9,6 +9,7 @@ from torch import optim
 from itertools import groupby, count
 from scipy.signal import savgol_filter
 from torch import optim
+from torch.autograd import Variable
 
 from lr_finder import *
 
@@ -140,3 +141,25 @@ def find_lr_get_lr(lr_finder_lr_, lr_finder_loss_):
     LR_idx = idx_neg_slp[largest_diff[0]]
     LR = lr_finder_lr_[LR_idx]
     return LR, LR_idx, lr_finder_loss_filtered_, idx_neg_slp
+
+def loss_batch(model, loss_func, xb, yb, device, opt=None):
+    '''Based on https://pytorch.org/tutorials/beginner/nn_tutorial.html'''
+    if torch.cuda.is_available():
+                xb = Variable(xb.cuda(device))
+                yb = Variable(yb.cuda(device))
+    else:
+        xb = Variable(xb)
+        yb = Variable(yb)
+
+    pred = model(xb)
+    loss = loss_func(pred, yb)
+    _, pred_class = torch.max(pred.data, 1)
+    batch_total = yb.size(0)
+
+    # Accuracies
+    if torch.cuda.is_available():
+        batch_correct = (pred_class.cpu() == yb.cpu()).sum().item()
+    else:
+        batch_correct = (pred_class == yb).sum().item()
+
+    return pred, loss, batch_total, batch_correct, pred_class
