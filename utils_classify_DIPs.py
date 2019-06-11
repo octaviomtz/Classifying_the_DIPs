@@ -92,6 +92,51 @@ class Dataset_malignacy(Dataset):
         img = Tensor(img.copy())
         return img, target
 
+class Dataset_orig_and_inpain_malignacy(Dataset):
+    def __init__(self, x_train, y_train, path_dataset1, path_dataset2, path_masks, transform = False):
+        #self.X = [f'{i}.npy' for i in x_train]
+        self.X = x_train
+        self.y = y_train-1
+        self.path_dataset1 = path_dataset1
+        self.path_dataset2 = path_dataset2
+        self.path_masks = path_masks
+        self.transform = transform
+        
+    def __len__(self):
+        return len(self.X)
+    
+    def rotate_axis(self, img_, axes):
+        """Rotate around the three axes maximum three times per axis"""
+        img_ = copy.copy(img_)
+        num_rot = 1#np.random.randint(1,4)
+        img_ = np.rot90(img_, num_rot, axes)
+        return img_
+
+    def __getitem__(self, idx):
+        img1 = np.load(f'{self.path_dataset1}{self.X[idx]}.npy')
+        img2 = np.load(f'{self.path_dataset2}{self.X[idx]}.npy')
+        mask = np.load(f'{self.path_masks}{self.X[idx]}.npz')
+        mask = mask.f.arr_0
+        
+        img1 = img1*mask
+        img2 = img2*(-1*mask+1)
+        img = img1+img2
+        
+        if self.transform:
+            if np.random.rand() > 0.5:
+                img = self.rotate_axis(img, (0,1))
+            if np.random.rand() > 0.5:
+                img = self.rotate_axis(img, (0,2))
+            if np.random.rand() > 0.5:
+                img = self.rotate_axis(img, (1,2))
+                            
+        target = self.y[idx]
+        target = torch.from_numpy(np.expand_dims(target,-1)).float()
+        target = Tensor(target).long().squeeze()
+        
+        img = Tensor(img.copy())
+        return img, target
+
 def class_imbalance_sampler(labels):
     '''get class imbalance from labels and return a sampler pytorch object'''
     train_imbalance = torch.from_numpy(np.asarray(labels)*1)
@@ -155,6 +200,8 @@ def loss_batch(model, loss_func, xb, yb, device, opt=None):
     loss = loss_func(pred, yb)
     _, pred_class = torch.max(pred.data, 1)
     batch_total = yb.size(0)
+    pred_proba = torch.softmax(pred, dim=1).detach().cpu().numpy()
+    pred_proba = pred_proba[:,1]
 
     # Accuracies
     if torch.cuda.is_available():
@@ -162,4 +209,5 @@ def loss_batch(model, loss_func, xb, yb, device, opt=None):
     else:
         batch_correct = (pred_class == yb).sum().item()
 
-    return pred, loss, batch_total, batch_correct, pred_class
+    return pred_proba, loss, batch_total, batch_correct, pred_class
+
