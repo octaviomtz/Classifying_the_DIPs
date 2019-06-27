@@ -19,25 +19,28 @@ def box_with_masks_search(coords_Z, coords_X, coords_Y, mask_lungs_, min_coords,
     box_found= False
     # find where the vol_cut get more info voxels
     max_sum = 0
-    for i in range(21):
-        ii = i * 3 - 30
-        for j in range(21):
-            jj = j * 3 - 30
-            for k in range(21):
-                kk = k * 3 - 30
+    for i in range(80*2):
+        ii = i * 2 - (160)
+        for j in range(80*2):
+            jj = j * 2 - (160)
+            for k in range(80*2):
+                kk = k * 2 - (160)
                 
                 # limits of the current box
                 zmin = int(coords_Z-(dist1//2)+ii)
-                zmin = np.max([zmin, 0]); zmax = int(zmin + dist1)
-                if zmax >= np.shape(mask_lungs_)[0]: continue
+                zmax = int(zmin + dist1)
+                if zmin < 0: continue
+                if zmax > np.shape(mask_lungs_)[0]: continue
                 
                 xmin = int(coords_X-(dist2//2)+jj); 
-                xmin = np.max([xmin, 0]); xmax = int(xmin + dist2)
-                if xmax >= np.shape(mask_lungs_)[1]: continue
+                xmax = int(xmin + dist2)
+                if xmin < 0: continue
+                if xmax > np.shape(mask_lungs_)[1]: continue
                 
                 ymin = int(coords_Y-(dist3//2)+kk); 
-                ymin = np.max([ymin, 0]); ymax = int(ymin + dist3)
-                if ymax >= np.shape(mask_lungs_)[2]: continue
+                ymax = int(ymin + dist3)
+                if ymin < 0: continue
+                if ymax > np.shape(mask_lungs_)[2]: continue
                 
 #                 print(zmin, zmax, xmin, xmax, ymin, ymax)
                 
@@ -59,7 +62,7 @@ def box_with_masks_search(coords_Z, coords_X, coords_Y, mask_lungs_, min_coords,
                         y_max_found = ymax 
     if box_found == False:
         z_min_found, z_max_found, x_min_found, x_max_found, y_min_found, y_max_found = -1, 1, 1, 1, 1, 1
-    return z_min_found, z_max_found, x_min_found, x_max_found, y_min_found, y_max_found        
+    return z_min_found, z_max_found, x_min_found, x_max_found, y_min_found, y_max_found             
 
 def transform_malignancy(i):
     '''Causey et al. Highly accurate model for prediction of lung nodule malignancy with CT scans
@@ -199,29 +202,28 @@ for idx, i in tqdm(enumerate(files_common), total=len(files_common)):
             nodules_with_shape_errors.append(f'{i}_{n_ndl}')
             continue
             
-        # Get the malignancy score
-        malignancy1 = df_one_nodule.malignancy.values
-        malignancy = list(map(transform_malignancy, malignancy1))
-        malignancy = list(filter(None, malignancy))
-        try:
-            malignancy_mode = mode(malignancy)
-        except StatisticsError: continue
-            
-        malignancies_original.append(malignancy1)
-        malignancies.append(malignancy)
-        malignancies_mode.append(malignancy_mode)
-        # Next lines are to append to malignancies_mode_3_agree (if at least 3 reviewers agree on malignancy)
-        agree_with_mode = [1 if malignancy_mode == i else 0 for i in malignancy]
-        agree_with_mode = np.sum(agree_with_mode)
-        if agree_with_mode >= 3:
-            malignancies_mode_3_agree.append(malignancy_mode)
-            names_to_save_3_agree.append(f'{i}_{n_ndl}')
-        
         # Save figures and targets
         np.save(f'{path_dest}original/{i}_{n_ndl}.npy',orig_small)
         np.save(f'{path_dest}inpainted/{i}_{n_ndl}.npy',last_small)
         np.savez_compressed(f'{path_dest}mask/{i}_{n_ndl}',mask_small)
         names_to_save.append(f'{i}_{n_ndl}')
+        
+        # Get the malignancy score
+        malignancy_original = df_one_nodule.malignancy.values
+        malignancies_original.append(malignancy_original)
+        malignancy = list(map(transform_malignancy, malignancy_original))
+        malignancy = list(filter(None, malignancy))
+        malignancies.append(malignancy)
+        try:
+            malignancy_mode = mode(malignancy)
+            malignancies_mode.append(malignancy_mode)
+            # Next lines are to append to malignancies_mode_3_agree (if at least 3 reviewers agree on malignancy)
+            agree_with_mode = [1 if malignancy_mode == i else 0 for i in malignancy]
+            agree_with_mode = np.sum(agree_with_mode)
+            if agree_with_mode >= 3:
+                malignancies_mode_3_agree.append(malignancy_mode)
+                names_to_save_3_agree.append(f'{i}_{n_ndl}')
+        except StatisticsError: continue        
             
         # These coords can be used to 'plot_block_and_cube'
 #         coords_Z_small = coords_Z - z_min_f 
