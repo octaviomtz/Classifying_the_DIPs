@@ -92,6 +92,39 @@ class Dataset_malignacy(Dataset):
         img = Tensor(img.copy())
         return img, target
 
+class Dataset_malignacy2D(Dataset):
+    def __init__(self, x_train, y_train, path_dataset, transform = False):
+        self.X = [f'{i}.npy' for i in x_train]
+        self.y = y_train
+        self.path_dataset = path_dataset
+        self.transform = transform
+        #print(f'self_y = {np.shape(self.y)} {self.y[:10]}')
+        print(len(self.X))
+    def __len__(self):
+        return len(self.X)
+
+    def __getitem__(self, idx):
+        img = np.load(f'{self.path_dataset}{self.X[idx]}')
+        
+        if self.transform:
+            if np.random.rand() > 0.5:
+                img = np.rot90(img,np.random.randint(0,4))
+            if np.random.rand() > 0.5:
+                img = np.fliplr(img)
+            if np.random.rand() > 0.5:
+                img = np.flipud(img)
+        #print(f'len(self.y) = {len(self.y)}')    
+        #print(f'self.y[10] = {self.y[10]}, {idx}')                    
+        target = self.y[idx]
+        print(f'img (np) = {np.shape(img)}, target (np) = {np.shape(target)}')
+        img = np.expand_dims(img,0)
+        target = torch.from_numpy(np.expand_dims(target,-1)).float()
+        target = Tensor(target).long().squeeze()
+        print(f'target = {target.shape}')
+        img = Tensor(img.copy())
+         
+        return img, target
+
 class Dataset_orig_and_inpain_malignacy(Dataset):
     def __init__(self, x_train, y_train, path_dataset1, path_dataset2, path_masks, transform = False):
         #self.X = [f'{i}.npy' for i in x_train]
